@@ -2,13 +2,13 @@ import styles from './style.css?inline'
 import { initApp } from './app/flow.js'
 
 /**
- * RAWidget.init('#ra', { apiBase, apiKey })
+ * RA360Widget.init('#ra', { apiBase, apiKey })
  *  - selector: contenedor donde montar el widget
  *  - opciones: apiBase (default https://romandeassure.ch/api), apiKey (opcional, no recomendado en cliente)
  */
 export function init(selector = '#ra', options = {}) {
   const host = document.querySelector(selector)
-  if (!host) throw new Error(`RAWidget: selector not found: ${selector}`)
+  if (!host) throw new Error(`RA360Widget: selector not found: ${selector}`)
 
   const shadow = host.shadowRoot || host.attachShadow({ mode: 'open' })
 
