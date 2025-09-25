@@ -1,13 +1,15 @@
-import { submitCheckup } from './api.js'
+import { submitCheckup, submitLead } from './api.js'
 
 const CATEGORY_CONFIG = {
   auto: {
     label: 'Assurance Auto',
     icon: '🚗',
     savings: 400,
-    ctaLabel: 'Comparer les offres auto',
+    ctaLabel: 'Planifier un rappel auto',
     ctaUrl: 'https://romandeassure.ch/fr/assurance-auto',
     source: 'Source : lesfurets.com',
+    leadCopy: 'Un conseiller Romande Assure vous aide à verrouiller le meilleur tarif auto.',
+    leadSuccess: 'Merci ! Un expert auto vous contactera sous 24 h pour finaliser votre comparaison.',
     questions: [
       {
         id: 'auto_last_review',
@@ -58,9 +60,11 @@ const CATEGORY_CONFIG = {
     label: 'Assurance Habitation',
     icon: '🏡',
     savings: 450,
-    ctaLabel: 'Comparer les offres habitation',
+    ctaLabel: 'Planifier un rappel habitation',
     ctaUrl: 'https://romandeassure.ch/fr/assurance-habitation',
     source: 'Source : echangesassurances.org',
+    leadCopy: 'Nos conseillers ajustent votre couverture habitation sans stress.',
+    leadSuccess: 'Merci ! Un expert habitation vous rappelle rapidement pour optimiser votre contrat.',
     questions: [
       {
         id: 'home_last_review',
@@ -111,8 +115,8 @@ const CATEGORY_CONFIG = {
     label: 'Assurance Santé (LAMal)',
     icon: '🩺',
     savings: 416,
-    ctaLabel: 'Comparer les primes santé',
-    ctaUrl: 'https://romandeassure.ch/fr/lamal-comparateur',
+    ctaLabel: 'Accéder au comparateur LAMal',
+    ctaUrl: 'https://romandeassure.ch/fr/comparateur-lamal',
     source: 'Sources : echangesassurances.org & lesfurets.com',
     questions: [
       {
@@ -163,13 +167,21 @@ const CATEGORY_CONFIG = {
 
 const CATEGORY_ENTRIES = Object.entries(CATEGORY_CONFIG)
 
+const LAMAL_KEY = 'sante'
+const LAMAL_DESTINATION = '/fr/comparateur-lamal'
+const EVENT_DIMENSIONS = { ui_style: 'soft-card', aura: 'blue', variant: 'capture-like' }
+
 const WIDGET_HTML = `
 <div class="ra360">
   <article class="widget-card" data-role="card" tabindex="0" aria-haspopup="dialog" aria-controls="ra-modal">
-    <div class="icons">🚗 🏡 🩺</div>
-    <h3>Faites le bilan de vos assurances</h3>
-    <p>En moins de 2 minutes, identifiez les économies potentielles sur vos contrats auto, habitation et santé.</p>
-    <div class="cta-inline">Faites le test maintenant →</div>
+    <div class="card-icon-trio" aria-hidden="true">
+      <span class="icon-pill"><span>🚗</span></span>
+      <span class="icon-pill"><span>🏡</span></span>
+      <span class="icon-pill"><span>🩺</span></span>
+    </div>
+    <h3>Bilan sérénité de vos assurances</h3>
+    <p class="card-subtitle">Identifiez en douceur vos marges d'économies sur l'auto, l'habitation et LAMal.</p>
+    <div class="cta-inline">Commencer le bilan maintenant <span aria-hidden="true">→</span></div>
   </article>
   <div class="modal-backdrop" data-modal hidden>
     <div class="modal" id="ra-modal" role="dialog" aria-modal="true" aria-labelledby="ra-modal-title">
@@ -236,7 +248,7 @@ function pushEvent(evt, payload = {}, dedupe = true) {
   try {
     if (!Array.isArray(window.dataLayer)) return
     if (dedupe && sentEvents.has(evt)) return
-    window.dataLayer.push({ event: evt, ...payload })
+    window.dataLayer.push({ event: evt, ...EVENT_DIMENSIONS, ...payload })
     if (dedupe) sentEvents.add(evt)
   } catch (err) {
     console.error('RA widget – dataLayer push error', err)
@@ -334,8 +346,36 @@ export function initApp(root, options = {}) {
     openedAt: null,
     questionStart: null,
     hasResults: false,
+    leadStatus: {},
+    gtmSessionId: null,
     options
   }
+
+  const resolveGtmSessionId = () => {
+    if (options?.gtmSessionId) return options.gtmSessionId
+    try {
+      const gtm = window?.google_tag_manager || {}
+      for (const key of Object.keys(gtm)) {
+        if (!key.startsWith('GTM-')) continue
+        const dataLayer = gtm[key]?.dataLayer
+        if (dataLayer?.get) {
+          const id = dataLayer.get('gtm.sessionId')
+          if (id) return id
+        }
+      }
+    } catch (err) {
+      console.warn('RA widget – unable to read GTM session', err)
+    }
+    if (Array.isArray(window.dataLayer)) {
+      for (let i = window.dataLayer.length - 1; i >= 0; i -= 1) {
+        const entry = window.dataLayer[i]
+        if (entry && entry['gtm.sessionId']) return entry['gtm.sessionId']
+      }
+    }
+    return null
+  }
+
+  state.gtmSessionId = resolveGtmSessionId()
 
   const totalSteps = () => 3 + state.questionQueue.length
 
@@ -388,6 +428,7 @@ export function initApp(root, options = {}) {
     state.openedAt = null
     state.questionStart = null
     state.hasResults = false
+    state.leadStatus = {}
     categoriesContainer?.querySelectorAll('.category-option').forEach(btn => {
       btn.classList.remove('active')
       btn.setAttribute('aria-pressed', 'false')
@@ -413,7 +454,9 @@ export function initApp(root, options = {}) {
     backdrop.classList.add('open')
     trapFocus(modal)
     state.openedAt = Date.now()
-    pushEvent('insuranceWidget_open')
+    pushEvent('ra360_open', {
+      opened_at: new Date().toISOString()
+    }, false)
     setTimeout(() => {
       categoriesContainer?.querySelector('button')?.focus({ preventScroll: true })
     }, 50)
@@ -425,7 +468,7 @@ export function initApp(root, options = {}) {
     backdrop.classList.remove('open')
     backdrop.hidden = true
     if (!state.hasResults) {
-      pushEvent('insuranceWidget_abandon', { step_abandon: state.currentStep }, false)
+      pushEvent('ra360_abandon', { step_abandon: state.currentStep }, false)
     }
     resetState()
     card?.focus({ preventScroll: true })
@@ -478,7 +521,7 @@ export function initApp(root, options = {}) {
           state.currentQuestionIndex += 1
           if (state.currentQuestionIndex >= state.questionQueue.length) {
             const duration = Math.max(1, Math.round((Date.now() - (state.questionStart || Date.now())) / 1000))
-            pushEvent('insuranceWidget_questionsCompleted', {
+            pushEvent('ra360_questions_completed', {
               nombre_questions: state.questionQueue.length,
               duree_completion: duration
             })
@@ -507,29 +550,145 @@ export function initApp(root, options = {}) {
   }
 
   const buildCtaCards = (items) => {
-    ctaGrid.innerHTML = items.map(item => `
-      <div class="cta-card" data-category="${item.key}">
-        <div class="cta-text">
-          <h5>${item.icon} ${item.label}</h5>
-          <p>${item.ctaMessage}</p>
+    if (!ctaGrid) return
+    const statusMap = state.leadStatus || (state.leadStatus = {})
+    const gtmSessionId = state.gtmSessionId
+    ctaGrid.innerHTML = items.map(item => {
+      const isLamal = item.key === LAMAL_KEY
+      const classes = ['cta-card', isLamal ? 'is-lamal' : 'is-lead']
+      const successCopy = item.leadSuccess || 'Merci ! Un conseiller vous contactera rapidement.'
+      const leadCopy = item.leadCopy || 'Un expert Romande Assure vous rappelle pour affiner votre contrat en toute sérénité.'
+      return `
+      <article class="${classes.join(' ')}" data-category="${item.key}">
+        <div class="cta-intro">
+          <div class="cta-icon-pill" aria-hidden="true"><span>${item.icon}</span></div>
+          <div class="cta-copy">
+            <h5>${item.label}</h5>
+            <p>${item.ctaMessage}</p>
+          </div>
         </div>
-        <button type="button" class="primary-btn" data-cta="${item.key}">${item.ctaLabel}</button>
-      </div>
-    `).join('')
-    Array.from(ctaGrid.querySelectorAll('[data-cta]')).forEach(btn => {
+        ${isLamal ? `
+          <button type="button" class="link-cta" data-cta-lamal data-url="${item.ctaUrl}">
+            ${item.ctaLabel} <span aria-hidden="true">→</span>
+          </button>
+        ` : `
+          <p class="lead-copy">${leadCopy}</p>
+          <form class="lead-form" data-service="${item.key}" novalidate>
+            <input type="hidden" name="service" value="${item.key}">
+            <div class="form-grid">
+              <label>
+                <span>Nom complet</span>
+                <input type="text" name="name" placeholder="Votre nom" autocomplete="name" required>
+              </label>
+              <label>
+                <span>Email ou téléphone</span>
+                <input type="text" name="email_or_phone" placeholder="vous@exemple.ch / +41…" autocomplete="email" required>
+              </label>
+              <label>
+                <span>NPA ou Canton</span>
+                <input type="text" name="npa_or_canton" placeholder="1204 Genève" autocomplete="postal-code" required>
+              </label>
+              <label>
+                <span>Service</span>
+                <input type="text" name="service_label" value="${item.label}" readonly aria-readonly="true">
+              </label>
+            </div>
+            <button type="submit" class="primary-btn" data-submit>${item.ctaLabel} <span aria-hidden="true">→</span></button>
+          </form>
+          <div class="lead-feedback success" data-lead-success hidden>
+            <div class="feedback-icon" aria-hidden="true">✔</div>
+            <p>${successCopy}</p>
+          </div>
+          <div class="lead-feedback error" data-lead-error hidden>
+            <div class="feedback-icon" aria-hidden="true">!</div>
+            <p>Oups ! Impossible d'envoyer votre demande. Merci de réessayer.</p>
+          </div>
+        `}
+      </article>
+    `}).join('')
+
+    Array.from(ctaGrid.querySelectorAll('[data-cta-lamal]')).forEach(btn => {
       btn.addEventListener('click', () => {
-        const key = btn.dataset.cta
-        const cfg = CATEGORY_CONFIG[key]
-        const result = items.find(i => i.key === key)
-        pushEvent('insuranceWidget_CTA_click', {
-          assurance_type: key,
-          potentiel_economie: cfg.savings,
-          score_vigilance: result?.score || 0
-        }, false)
-        if (cfg.ctaUrl) {
-          window.open(cfg.ctaUrl, '_blank', 'noopener')
+        const url = btn.dataset.url
+        pushEvent('ra360_lamal_redirect', { service: LAMAL_KEY, destination: LAMAL_DESTINATION }, false)
+        if (url) {
+          const win = window.open(url, '_blank', 'noopener')
+          if (win) win.opener = null
         }
-        closeModal('cta')
+      })
+    })
+
+    Array.from(ctaGrid.querySelectorAll('form[data-service]')).forEach(form => {
+      const service = form.dataset.service
+      const card = form.closest('.cta-card')
+      const successEl = card?.querySelector('[data-lead-success]')
+      const errorEl = card?.querySelector('[data-lead-error]')
+      const submitBtn = form.querySelector('[data-submit]')
+
+      const setStatus = (status) => {
+        if (!card) return
+        card.dataset.leadStatus = status
+        if (status === 'success') {
+          form.hidden = true
+          if (successEl) successEl.hidden = false
+          if (errorEl) errorEl.hidden = true
+        } else {
+          form.hidden = false
+          if (successEl) successEl.hidden = true
+          if (errorEl) errorEl.hidden = status !== 'error'
+        }
+      }
+
+      if (statusMap[service] === 'success') {
+        setStatus('success')
+      }
+
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault()
+        if (errorEl) errorEl.hidden = true
+        const data = new FormData(form)
+        const name = String(data.get('name') || '').trim()
+        const contact = String(data.get('email_or_phone') || '').trim()
+        const location = String(data.get('npa_or_canton') || '').trim()
+        if (!name || !contact || !location) {
+          statusMap[service] = 'error'
+          setStatus('error')
+          return
+        }
+        const originalText = submitBtn?.textContent || ''
+        if (submitBtn) {
+          submitBtn.disabled = true
+          submitBtn.textContent = 'Envoi en cours…'
+        }
+        try {
+          const payload = {
+            service,
+            user: {
+              name,
+              email_or_phone: contact,
+              npa_or_canton: location
+            },
+            source: 'ra360_widget',
+            variant: 'capture-like',
+            ui_style: 'soft-card',
+            aura: 'blue'
+          }
+          if (gtmSessionId) payload.gtm_session_id = gtmSessionId
+          const ok = await submitLead(options, payload)
+          pushEvent('ra360_lead_submit', { service, submit_status: ok ? 'success' : 'error' }, false)
+          statusMap[service] = ok ? 'success' : 'error'
+          setStatus(ok ? 'success' : 'error')
+        } catch (err) {
+          console.error('RA widget – lead submit failed', err)
+          statusMap[service] = 'error'
+          pushEvent('ra360_lead_submit', { service, submit_status: 'error' }, false)
+          setStatus('error')
+        } finally {
+          if (submitBtn) {
+            submitBtn.disabled = false
+            submitBtn.textContent = originalText
+          }
+        }
       })
     })
   }
@@ -553,6 +712,9 @@ export function initApp(root, options = {}) {
         score: normalized,
         savings: cfg.savings,
         ctaLabel: cfg.ctaLabel,
+        ctaUrl: cfg.ctaUrl,
+        leadCopy: cfg.leadCopy,
+        leadSuccess: cfg.leadSuccess,
         ctaMessage: `Débloquez jusqu'à ${cfg.savings}${key === 'sante' ? ' CHF' : ' €'} d'économies potentielles`,
         answers: state.answers[key] || {}
       }
@@ -586,18 +748,22 @@ export function initApp(root, options = {}) {
       score_vigilance: overall.score,
       estimation_economies_totales: totalSavings,
       source: options.source || 'widgetPageAccueil',
+      variant: 'capture-like',
+      ui_style: 'soft-card',
+      aura: 'blue',
       timestamp: new Date().toISOString()
     }
 
-    pushEvent('insuranceWidget_resultsShown', {
-      potentiel_economie: totalSavings,
+    pushEvent('ra360_results_shown', {
+      potential_savings: totalSavings,
+      services: Array.from(state.categories),
       score_vigilance: overall.score
     })
 
     submitCheckup(options, payload).then(ok => {
-      pushEvent('insuranceWidget_dataSent', { status: ok ? 'success' : 'error' }, false)
+      pushEvent('ra360_payload_sent', { status: ok ? 'success' : 'error' }, false)
     }).catch(() => {
-      pushEvent('insuranceWidget_dataSent', { status: 'error' }, false)
+      pushEvent('ra360_payload_sent', { status: 'error' }, false)
     })
 
     setStep('results')
@@ -634,9 +800,10 @@ export function initApp(root, options = {}) {
     buildQuestionQueue()
     state.currentQuestionIndex = 0
     state.questionStart = Date.now()
-    pushEvent('insuranceWidget_selectCategories', {
-      categories: Array.from(state.categories),
-      nombre_categories: state.categories.size
+    const selectedServices = Array.from(state.categories)
+    pushEvent('ra360_select', {
+      services: selectedServices,
+      count: selectedServices.length
     })
     setStep('question')
     renderQuestion()
