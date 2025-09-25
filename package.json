@@ -1,0 +1,17 @@
+{
+  "name": "romandeassure-widget",
+  "version": "1.0.0",
+  "type": "module",
+  "private": false,
+  "engines": { "node": ">=18.0.0" },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --port 4173"
+  },
+  "devDependencies": {
+    "vite": "^5.4.0",
+    "vite-plugin-css-injected-by-js": "^3.5.1"
+  }
+}
+
