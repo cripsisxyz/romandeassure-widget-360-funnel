@@ -1,179 +1,231 @@
-import * as state from './state.js'
-import * as dom from './dom.js'
-import { getPrimes, getPrimesMeta, getCompare, registerLead } from './api.js'
-import { wireDefaultButton } from './push.js'
+import { submitCheckup } from './api.js'
 
-const PHONE_PREFIXES = [
-  { code: "+39", mask: "999 999 9999", flag: "🇮🇹", country: "Italy" },
-  { code: "+49", mask: "999 9999999", flag: "🇩🇪", country: "Germany" },
-  { code: "+351", mask: "999 999 999", flag: "🇵🇹", country: "Portugal" },
-  { code: "+33", mask: "9 99 99 99 99", flag: "🇫🇷", country: "France" },
-  { code: "+383", mask: "999 999 999", flag: "🇽🇰", country: "Kosovo" },
-  { code: "+34", mask: "999 99 99 99", flag: "🇪🇸", country: "Spain" },
-  { code: "+90", mask: "999 999 9999", flag: "🇹🇷", country: "Turkey" },
-  { code: "+389", mask: "99 999 999", flag: "🇲🇰", country: "North Macedonia" },
-  { code: "+381", mask: "99 999 9999", flag: "🇷🇸", country: "Serbia" },
-  { code: "+43", mask: "999 9999999", flag: "🇦🇹", country: "Austria" },
-  { code: "+44", mask: "9999 999999", flag: "🇬🇧", country: "United Kingdom" },
-  { code: "+387", mask: "99 999 999", flag: "🇧🇦", country: "Bosnia and Herzegovina" },
-  { code: "+385", mask: "99 999 999", flag: "🇭🇷", country: "Croatia" },
-  { code: "+94", mask: "99 999 9999", flag: "🇱🇰", country: "Sri Lanka" },
-  { code: "+41", mask: "99 999 99 99", flag: "🇨🇭", country: "Switzerland" },
-  { code: "+1", mask: "999-999-9999", flag: "🇺🇸", country: "United States" },
-  { code: "+420", mask: "999 999 999", flag: "🇨🇿", country: "Czech Republic" },
-  { code: "+48", mask: "999 999 999", flag: "🇵🇱", country: "Poland" },
-  { code: "+36", mask: "99 999 9999", flag: "🇭🇺", country: "Hungary" },
-  { code: "+47", mask: "999 99 999", flag: "🇳🇴", country: "Norway" },
-  { code: "+46", mask: "999-999 999", flag: "🇸🇪", country: "Sweden" },
-  { code: "+358", mask: "999 999999", flag: "🇫🇮", country: "Finland" },
-  { code: "+372", mask: "9999 9999", flag: "🇪🇪", country: "Estonia" },
-  { code: "+371", mask: "9999 9999", flag: "🇱🇻", country: "Latvia" },
-  { code: "+370", mask: "999 99999", flag: "🇱🇹", country: "Lithuania" },
-  { code: "+61", mask: "(99) 9999 9999", flag: "🇦🇺", country: "Australia" },
-  { code: "+64", mask: "9999 999 999", flag: "🇳🇿", country: "New Zealand" },
-  { code: "+971", mask: "9 999 9999", flag: "🇦🇪", country: "United Arab Emirates" },
-  { code: "+964", mask: "9999 999 999", flag: "🇮🇶", country: "Iraq" },
-  { code: "+98", mask: "999 9999 9999", flag: "🇮🇷", country: "Iran" },
-  { code: "+961", mask: "## ### ###", flag: "🇱🇧", country: "Lebanon" },
-  { code: "+7", mask: "999 999-99-99", flag: "🇷🇺", country: "Russia" },
-  { code: "+380", mask: "99 999 9999", flag: "🇺🇦", country: "Ukraine" },
-  { code: "+20", mask: "99 999 9999", flag: "🇪🇬", country: "Egypt" },
-  { code: "+212", mask: "5 99 999 999", flag: "🇲🇦", country: "Morocco" },
-  { code: "+213", mask: "5 999 9999", flag: "🇩🇿", country: "Algeria" },
-  { code: "+254", mask: "7 999 999999", flag: "🇰🇪", country: "Kenya" },
-  { code: "+27", mask: "## ### ####", flag: "🇿🇦", country: "South Africa" },
-  { code: "+60", mask: "##-#### ####", flag: "🇲🇾", country: "Malaysia" },
-  { code: "+65", mask: "9999 9999", flag: "🇸🇬", country: "Singapore" },
-  { code: "+91", mask: "99999 99999", flag: "🇮🇳", country: "India" },
-  { code: "+852", mask: "9999 9999", flag: "🇭🇰", country: "Hong Kong" },
-  { code: "+886", mask: "9 9999 9999", flag: "🇹🇼", country: "Taiwan" },
-  { code: "+82", mask: "99-9999-9999", flag: "🇰🇷", country: "South Korea" },
-  { code: "+81", mask: "99-9999-9999", flag: "🇯🇵", country: "Japan" },
-  { code: "+86", mask: "999 9999 9999", flag: "🇨🇳", country: "China" },
-  { code: "+84", mask: "99 999 9999", flag: "🇻🇳", country: "Vietnam" },
-  { code: "+66", mask: "99 999 9999", flag: "🇹🇭", country: "Thailand" },
-  { code: "+62", mask: "89 9999 9999", flag: "🇮🇩", country: "Indonesia" },
-  { code: "+63", mask: "99 999 9999", flag: "🇵🇭", country: "Philippines" },
-  { code: "+54", mask: "99 9999-9999", flag: "🇦🇷", country: "Argentina" },
-  { code: "+55", mask: "(99) 99999-9999", flag: "🇧🇷", country: "Brazil" },
-  { code: "+52", mask: "(99) 9999 9999", flag: "🇲🇽", country: "Mexico" },
-  { code: "+57", mask: "999 999 9999", flag: "🇨🇴", country: "Colombia" },
-  { code: "+58", mask: "9999-999999", flag: "🇻🇪", country: "Venezuela" },
-  { code: "+56", mask: "9 9999 9999", flag: "🇨🇱", country: "Chile" },
-  { code: "+51", mask: "999 999 999", flag: "🇵🇪", country: "Peru" },
-  { code: "+507", mask: "999-9999", flag: "🇵🇦", country: "Panama" },
-  { code: "+502", mask: "9999 9999", flag: "🇬🇹", country: "Guatemala" },
-  { code: "+503", mask: "9999-9999", flag: "🇸🇻", country: "El Salvador" },
-  { code: "+505", mask: "9999 9999", flag: "🇳🇮", country: "Nicaragua" },
-  { code: "+965", mask: "9999 9999", flag: "🇰🇼", country: "Kuwait" },
-  { code: "+966", mask: "9 999 9999", flag: "🇸🇦", country: "Saudi Arabia" },
-  { code: "+974", mask: "9999 9999", flag: "🇶🇦", country: "Qatar" }
-]
+const CATEGORY_CONFIG = {
+  auto: {
+    label: 'Assurance Auto',
+    icon: '🚗',
+    savings: 400,
+    ctaLabel: 'Comparer les offres auto',
+    ctaUrl: 'https://romandeassure.ch/fr/assurance-auto',
+    source: 'Source : lesfurets.com',
+    questions: [
+      {
+        id: 'auto_last_review',
+        title: 'Depuis combien de temps n\'avez-vous pas comparé votre assurance auto ?',
+        subtitle: 'Une mise à jour régulière vous protège contre les hausses silencieuses.',
+        options: [
+          { value: 'less_1', label: 'Moins d\'1 an', detail: 'Je suis à jour', score: 5 },
+          { value: '1_3', label: 'Entre 1 et 3 ans', detail: 'Cela fait un moment', score: 3 },
+          { value: 'more_3', label: 'Plus de 3 ans', detail: 'Je n\'ai jamais revu mon contrat', score: 1 }
+        ]
+      },
+      {
+        id: 'auto_satisfaction',
+        title: 'Êtes-vous satisfait du prix de votre assurance auto ?',
+        subtitle: 'Votre ressenti est un excellent signal pour déclencher une renégociation.',
+        options: [
+          { value: 'yes', label: 'Oui, tout va bien', detail: 'Je pense être bien positionné', score: 5 },
+          { value: 'unsure', label: 'Je ne sais pas', detail: 'Je n\'ai pas comparé récemment', score: 3 },
+          { value: 'no', label: 'Non, je paie trop', detail: 'Je soupçonne un tarif élevé', score: 1 }
+        ]
+      }
+    ],
+    evaluate: (answers) => {
+      const last = answers.auto_last_review
+      const satisfaction = answers.auto_satisfaction
+      if (last === 'less_1' && satisfaction === 'yes') {
+        return {
+          tone: 'success',
+          headline: 'Bravo, vous gardez votre contrat auto sous contrôle ✅',
+          message: 'Continuez à comparer chaque année pour ne jamais manquer une opportunité. Une vigilance régulière évite les hausses surprises.'
+        }
+      }
+      if (last === 'more_3' || satisfaction === 'no') {
+        return {
+          tone: 'critical',
+          headline: 'Votre assurance auto mérite une comparaison immédiate ! ⚠️',
+          message: 'Les automobilistes qui relancent leurs comparatifs économisent en moyenne ~400 € par an. Plus vous attendez, plus la facture grimpe. Ne laissez pas ces économies filer.'
+        }
+      }
+      return {
+        tone: 'warning',
+        headline: 'Un check-up auto peut débloquer plusieurs centaines d\'euros',
+        message: 'Si votre contrat a plus d\'un an, une comparaison maintenant peut dégager jusqu\'à 400 € d\'économies annuelles. Prenez 2 minutes pour valider que vous êtes bien couvert.'
+      }
+    }
+  },
+  habitation: {
+    label: 'Assurance Habitation',
+    icon: '🏡',
+    savings: 450,
+    ctaLabel: 'Comparer les offres habitation',
+    ctaUrl: 'https://romandeassure.ch/fr/assurance-habitation',
+    source: 'Source : echangesassurances.org',
+    questions: [
+      {
+        id: 'home_last_review',
+        title: 'Quand avez-vous renégocié votre assurance habitation pour la dernière fois ?',
+        subtitle: 'Les garanties évoluent, vos besoins aussi.',
+        options: [
+          { value: 'less_1', label: 'Cette année', detail: 'Je viens de comparer', score: 5 },
+          { value: '1_2', label: 'Il y a 1 à 2 ans', detail: 'Un rafraîchissement ne ferait pas de mal', score: 3 },
+          { value: 'more_2', label: 'Plus de 2 ans', detail: 'Je n\'ai rien changé depuis longtemps', score: 1 }
+        ]
+      },
+      {
+        id: 'home_satisfaction',
+        title: 'Êtes-vous satisfait du niveau de couverture et du prix ?',
+        subtitle: 'Un contrat trop cher ou mal calibré coûte cher en cas de sinistre.',
+        options: [
+          { value: 'yes', label: 'Oui, je suis serein', detail: 'Mon prix est cohérent', score: 5 },
+          { value: 'unsure', label: 'Je ne sais pas', detail: 'Je n\'ai jamais regardé en détail', score: 2 },
+          { value: 'no', label: 'Non, je doute', detail: 'Je crains de payer trop', score: 1 }
+        ]
+      }
+    ],
+    evaluate: (answers) => {
+      const last = answers.home_last_review
+      const satisfaction = answers.home_satisfaction
+      if (last === 'less_1' && satisfaction === 'yes') {
+        return {
+          tone: 'success',
+          headline: 'Votre couverture habitation est bien tenue 👏',
+          message: 'Restez attentif aux évolutions de valeur de vos biens et programmez une vérification annuelle pour conserver vos avantages.'
+        }
+      }
+      if (last === 'more_2' || satisfaction === 'no') {
+        return {
+          tone: 'critical',
+          headline: 'Votre logement peut cacher 450 € d\'économies potentielles',
+          message: 'Les propriétaires qui renégocient leur assurance habitation économisent en moyenne 450 € la première année. Actualisez votre contrat pour ne plus surpayer.'
+        }
+      }
+      return {
+        tone: 'warning',
+        headline: 'Bonne idée de revisiter votre assurance habitation',
+        message: 'Une mise à jour rapide sécurise vos biens et peut alléger la facture. Comparez les offres pour vérifier si votre budget est optimisé.'
+      }
+    }
+  },
+  sante: {
+    label: 'Assurance Santé (LAMal)',
+    icon: '🩺',
+    savings: 416,
+    ctaLabel: 'Comparer les primes santé',
+    ctaUrl: 'https://romandeassure.ch/fr/lamal-comparateur',
+    source: 'Sources : echangesassurances.org & lesfurets.com',
+    questions: [
+      {
+        id: 'health_compare',
+        title: 'Avez-vous comparé les primes de votre caisse maladie cette année ?',
+        subtitle: 'Les primes évoluent tous les ans : rester immobile coûte cher.',
+        options: [
+          { value: 'yes', label: 'Oui, récemment', detail: 'Je suis les primes de près', score: 5 },
+          { value: 'plan', label: 'C\'est prévu bientôt', detail: 'Je dois encore le faire', score: 3 },
+          { value: 'no', label: 'Non, pas encore', detail: 'Je n\'ai pas eu le temps', score: 1 }
+        ]
+      },
+      {
+        id: 'health_priority',
+        title: 'Quel est votre objectif principal ?',
+        subtitle: 'Indiquez votre priorité pour adapter la recommandation.',
+        options: [
+          { value: 'price', label: 'Réduire ma prime', detail: 'Je veux payer moins', score: 1 },
+          { value: 'coverage', label: 'Améliorer ma couverture', detail: 'Je cherche de meilleures garanties', score: 3 },
+          { value: 'stability', label: 'Trouver un équilibre', detail: 'Je veux optimiser prix + service', score: 4 }
+        ]
+      }
+    ],
+    evaluate: (answers) => {
+      const compared = answers.health_compare
+      if (compared === 'yes') {
+        return {
+          tone: 'success',
+          headline: 'Vous maîtrisez vos primes santé 🎯',
+          message: 'Continuez à challenger votre caisse chaque automne. Quelques minutes suffisent pour confirmer que vous payez le juste prix.'
+        }
+      }
+      if (compared === 'no') {
+        return {
+          tone: 'critical',
+          headline: 'Votre caisse maladie peut coûter des centaines de francs de trop',
+          message: 'Moins de 15 % des assurés comparent chaque année alors que les économies peuvent dépasser 400 CHF. Lancez une comparaison pour reprendre la main.'
+        }
+      }
+      return {
+        tone: 'warning',
+        headline: 'Dernière ligne droite pour valider vos primes santé',
+        message: 'Comparer maintenant permet souvent d\'économiser plusieurs centaines de francs sans sacrifier votre couverture. Ne laissez pas passer la prochaine échéance.'
+      }
+    }
+  }
+}
 
-const PHONE_PREFIX_OPTIONS = PHONE_PREFIXES.map(p =>
-  `<option value="${p.code}" data-mask="${p.mask}"${p.code === '+41' ? ' selected' : ''}>${p.flag} ${p.code}</option>`
-).join('')
+const CATEGORY_ENTRIES = Object.entries(CATEGORY_CONFIG)
 
-const DEFAULT_MASK = PHONE_PREFIXES.find(p => p.code === '+41')?.mask || ''
-
-// Pega aquí SOLO el contenido interno del widget (sin el <div id="ra"> externo)
 const WIDGET_HTML = `
-<div class="box" role="form">
-<div class="announcement" role="status">Les primes LAMal 2026 sont-là!</div>
-<div class="overlay" aria-hidden="true"><div class="sp" aria-label="Chargement"></div><div class="load-msg">🔎 Analyse de vos offres personnalisées en cours…</div></div>
-<div class="hd">
-  <p>Comparez gratuitement les meilleures assurances avec <img src="https://romandeassure.ch/cus-assets/images/logo-romandeassure-lamal-compare.webp" alt="RomandeAssure LAMal"></p>
-  <p>🚀 Résultats en <strong style="color:#ff6b00">30&nbsp;secondes</strong>!</p>
-</div>
-<div id="t" class="toast" role="status" aria-live="polite"></div>
-
-<div class="st on" id="s1">
-  <div style="margin-bottom:12px">
-    <div class="progress"><div class="progress-bar" style="width:25%"></div></div>
-    <div style="margin-top:4px;font-size:13px;color:#374151;text-align:right">Étape 1 sur 4</div>
-  </div>
-  <label for="n">Votre Code postal (NPA)</label><input type="number" id="n" inputmode="numeric" pattern="[0-9]*" min="1000" max="9999" placeholder="Code Postal" required>
-  <label for="a">Votre âge</label><input type="number" id="a" inputmode="numeric" pattern="[0-9]*" min="18" max="99" placeholder="Âge" required>
-  <div class="btns"><button class="btn p" data-act="next">Suivant</button></div><p class="fine">Comparaison gratuite – Sans engagement – Réseau de confiance</p>
-</div>
-
-<div class="st" id="s2">
-  <div style="margin-bottom:12px">
-    <div class="progress"><div class="progress-bar" style="width:50%"></div></div>
-    <div style="margin-top:4px;font-size:13px;color:#374151;text-align:right">Étape 2 sur 4</div>
-  </div>
-  <div id="ctx" class="ctx" aria-live="polite"></div>
-  <label for="f">Franchise (CHF)</label><select id="f"><option>300</option><option>500</option><option>1000</option><option>1500</option><option>2000</option><option selected>2500</option></select>
-  <label for="x">Couverture accident <span class="ibtn" tabindex="0">i<div class="ibubble"><ul><li>Non (par défaut): salarié ≥8h/sem.</li><li>Oui: indépendant, étudiant, retraité, sans emploi, salarié &lt;8h/sem.</li></ul></div></span></label><select id="x"><option value="0" selected>Non</option><option value="1">Oui</option></select>
-  <div class="btns"><button class="btn p" data-act="compute">Afficher les résultats</button></div>
-</div>
-
-<div class="st" id="s3">
-  <div style="margin-bottom:12px">
-    <div class="progress"><div class="progress-bar" style="width:75%"></div></div>
-  <div style="margin-top:4px;font-size:13px;color:#374151;text-align:right">Étape 3 sur 4</div>
-  </div>
-  <div id="r"></div>
-  <div class="btns"><button class="btn p" data-go="4">Voir plus d'informations</button></div>
-</div>
-
-<div class="st" id="s4">
-<!-- K() inyecta aquí el bloque rc (overview mercado) -->
-
-  <div class="rc rc-in" style="margin-top:8px">
-    <div style="margin-bottom:12px">
-      <div class="progress"><div class="progress-bar" style="width:100%"></div></div>
-      <div style="margin-top:4px;font-size:13px;color:#374151;text-align:right">Étape 4 sur 4 – presque terminé 🎉</div>
-    </div>
-    <div id="s4-msg" style="margin-bottom:8px;color:#111827;font-weight:700">
-      Vos offres détaillées sont prêtes ! Débloquez-les immédiatement 👇
-    </div>
-
-  <label for="fn">Prénom</label>
-  <input type="text" id="fn" placeholder="p. ex. Marie" required>
-
-  <div style="margin-bottom:6px;font-size:13px">📲 Recevez vos offres détaillées immédiatement par WhatsApp ou SMS.</div>
-  <div class="row">
-    <div style="flex:1">
-      <label for="ph_prefix">Code</label>
-      <select id="ph_prefix">${PHONE_PREFIX_OPTIONS}</select>
-    </div>
-    <div style="flex:2">
-      <label for="ph">Téléphone</label>
-      <input type="text" id="ph" placeholder="${DEFAULT_MASK}" required>
+<div class="ra360">
+  <article class="widget-card" data-role="card" tabindex="0" aria-haspopup="dialog" aria-controls="ra-modal">
+    <div class="icons">🚗 🏡 🩺</div>
+    <h3>Faites le bilan de vos assurances</h3>
+    <p>En moins de 2 minutes, identifiez les économies potentielles sur vos contrats auto, habitation et santé.</p>
+    <div class="cta-inline">Faites le test maintenant →</div>
+  </article>
+  <div class="modal-backdrop" data-modal hidden>
+    <div class="modal" id="ra-modal" role="dialog" aria-modal="true" aria-labelledby="ra-modal-title">
+      <button class="modal-close" data-close aria-label="Fermer le diagnostic">×</button>
+      <header>
+        <h2 id="ra-modal-title">Bilan express de vos assurances 📊</h2>
+        <p>Répondez à quelques questions pour découvrir où vous pourriez économiser jusqu\'à 1 000 € par an.</p>
+        <div class="progress-bar"><span data-progress-bar></span></div>
+        <div class="progress-label" data-progress-label>Étape 1 sur 4</div>
+      </header>
+      <main>
+        <section class="step active" data-step="categories">
+          <p>Sélectionnez les assurances que vous souhaitez analyser. Vous pouvez en choisir plusieurs.</p>
+          <div class="categories-grid" data-categories></div>
+          <div class="step-actions">
+            <button type="button" class="primary-btn" data-action="start" disabled>Commencer le diagnostic</button>
+          </div>
+        </section>
+        <section class="step" data-step="question">
+          <div class="question-header">
+            <div data-question-context></div>
+            <div data-question-progress></div>
+          </div>
+          <div class="question-body">
+            <h3 data-question-title></h3>
+            <p data-question-subtitle></p>
+            <div class="question-options" data-question-options></div>
+          </div>
+          <div class="step-actions">
+            <button type="button" class="secondary-btn" data-action="back">Retour</button>
+          </div>
+        </section>
+        <section class="step" data-step="results">
+          <div class="overall-score">
+            <strong data-overall-score></strong>
+            <span data-overall-text></span>
+          </div>
+          <div class="results-summary" data-results></div>
+          <div class="step-actions">
+            <button type="button" class="primary-btn" data-action="to-cta">Voir mes actions concrètes</button>
+          </div>
+        </section>
+        <section class="step" data-step="actions">
+          <div class="overall-score">
+            <strong data-total-savings></strong>
+            <span data-total-text></span>
+          </div>
+          <div class="cta-grid" data-cta-grid></div>
+        </section>
+      </main>
+      <footer>
+        <div class="footer-reminder">Ne laissez pas des centaines d'euros s'échapper 💡</div>
+        <div>Processus 100 % gratuit – aucune obligation</div>
+      </footer>
     </div>
   </div>
-  <div class="consent">
-    <input type="checkbox" id="wa" checked style="width:18px;height:18px">
-      <label for="wa" style="display:flex;align-items:center;gap:6px">
-        <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="WhatsApp" style="width:14px;height:14px">
-        ✅ Oui, je veux recevoir mes offres détaillées sur WhatsApp.
-      </label>
-  </div>
-
-  <div class="consent">
-    <input id="c" type="checkbox" required style="width:18px;height:18px">
-    <label for="c">J’accepte que mes données soient utilisées pour me recontacter*.
-      Voir <a href="https://romandeassure.ch/fr/politique-de-confidentialite" target="_blank" rel="noopener noreferrer">Politique de confidentialité</a>.
-    </label>
-  </div>
-
-  <div class="btns">
-        <button class="btn p" data-act="lead" style="flex:2;height:60px;font-size:17px">🔓 Voir mes offres détaillées maintenant</button>
-    </div>
-  <p style="margin:8px 0 0;text-align:center;color:#374151;font-size:13px">+320 personnes ont trouvé leur assurance idéale cette semaine via RomandeAssure.</p>
-  <p class="fine">Comparaison gratuite – Sans engagement – Réseau de confiance</p>
-</div>
-</div>
-
-<div class="st" id="s5">
-  <div class="thanks">Merci beaucoup de vôtre confiance, un agent vous contactera bientôt!</div>
-  <div class="checkmark" aria-hidden="true">
-    <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12" /></svg>
-  </div>
-  <div class="note">comme promis, Voici les résultats complets de votre recherche</div>
-  <div id="r5"></div>
-</div>
 </div>
 `
 
@@ -185,336 +237,443 @@ function pushEvent(evt, payload = {}, dedupe = true) {
     if (!Array.isArray(window.dataLayer)) return
     if (dedupe && sentEvents.has(evt)) return
     window.dataLayer.push({ event: evt, ...payload })
-    console.log(`RA > ${evt} pushed`)
     if (dedupe) sentEvents.add(evt)
-  } catch (e) {
-    console.error('RA > dataLayer push error', e)
+  } catch (err) {
+    console.error('RA widget – dataLayer push error', err)
   }
 }
+
+function trapFocus(container) {
+  const selector = 'a[href], button, textarea, input, select, [tabindex]:not([tabindex="-1"])'
+  const focusable = Array.from(container.querySelectorAll(selector)).filter(el => !el.hasAttribute('disabled'))
+  if (!focusable.length) return
+  const first = focusable[0]
+  const last = focusable[focusable.length - 1]
+  const handler = (e) => {
+    if (e.key !== 'Tab') return
+    if (e.shiftKey) {
+      if (document.activeElement === first) {
+        e.preventDefault()
+        last.focus()
+      }
+    } else if (document.activeElement === last) {
+      e.preventDefault()
+      first.focus()
+    }
+  }
+  container.__trapHandler = handler
+  container.addEventListener('keydown', handler)
+}
+
+function releaseTrap(container) {
+  if (container?.__trapHandler) {
+    container.removeEventListener('keydown', container.__trapHandler)
+    delete container.__trapHandler
+  }
+}
+
+function buildCategoryButtons(container) {
+  container.innerHTML = CATEGORY_ENTRIES.map(([key, cfg]) => `
+    <button type="button" class="category-option" data-category="${key}" aria-pressed="false">
+      <div class="category-icon">${cfg.icon}</div>
+      <div>${cfg.label}</div>
+      <span>Jusqu'à ${cfg.savings} ${key === 'sante' ? 'CHF' : '€'} d'économies</span>
+    </button>
+  `).join('')
+}
+
+function computeMaxScores() {
+  const map = {}
+  for (const [key, cfg] of CATEGORY_ENTRIES) {
+    map[key] = cfg.questions.reduce((total, q) => {
+      const best = Math.max(...q.options.map(opt => opt.score))
+      return total + best
+    }, 0)
+  }
+  return map
+}
+
+const MAX_SCORES = computeMaxScores()
 
 export function initApp(root, options = {}) {
-  // Monta HTML
-  dom.mountHTML(root, WIDGET_HTML)
-  // Wire push notification button
-  wireDefaultButton(root)
-  // Ensure widget is in view on load
-  if (root && root.scrollIntoView) root.scrollIntoView({ block: 'start' })
+  root.innerHTML = WIDGET_HTML
 
-  // Bind inputs
-  const n = state.$in(root, '#n')
-  const a = state.$in(root, '#a')
-  if (n) state.clampInput(n, 1000, 9999)
-  if (a) state.clampInput(a, 18, 99)
-  const ph = state.$in(root, '#ph')
-  const phPref = state.$in(root, '#ph_prefix')
-  const maskPhone = () => {
-    if (!ph || !phPref) return
-    const mask = phPref.selectedOptions?.[0]?.dataset?.mask || ''
-    const digits = ph.value.replace(/\D/g, '')
-    let res = ''
-    let di = 0
-    for (const ch of mask) {
-      if (/[9#]/.test(ch)) {
-        if (digits[di]) { res += digits[di++]; }
-        else break
+  const card = root.querySelector('[data-role="card"]')
+  const backdrop = root.querySelector('[data-modal]')
+  const modal = root.querySelector('.modal')
+  const closeButtons = root.querySelectorAll('[data-close]')
+  const progressBar = root.querySelector('[data-progress-bar]')
+  const progressLabel = root.querySelector('[data-progress-label]')
+  const stepSections = Array.from(root.querySelectorAll('.step'))
+  const categoriesContainer = root.querySelector('[data-categories]')
+  const startBtn = root.querySelector('[data-action="start"]')
+  const backBtn = root.querySelector('[data-action="back"]')
+  const toCtaBtn = root.querySelector('[data-action="to-cta"]')
+  const questionTitle = root.querySelector('[data-question-title]')
+  const questionSubtitle = root.querySelector('[data-question-subtitle]')
+  const questionOptions = root.querySelector('[data-question-options]')
+  const questionContext = root.querySelector('[data-question-context]')
+  const questionProgress = root.querySelector('[data-question-progress]')
+  const resultsContainer = root.querySelector('[data-results]')
+  const overallScore = root.querySelector('[data-overall-score]')
+  const overallText = root.querySelector('[data-overall-text]')
+  const totalSavingsEl = root.querySelector('[data-total-savings]')
+  const totalTextEl = root.querySelector('[data-total-text]')
+  const ctaGrid = root.querySelector('[data-cta-grid]')
+
+  buildCategoryButtons(categoriesContainer)
+
+  const state = {
+    categories: new Set(),
+    questionQueue: [],
+    answers: {},
+    scores: {},
+    answerScores: {},
+    currentStep: 'categories',
+    currentQuestionIndex: 0,
+    openedAt: null,
+    questionStart: null,
+    hasResults: false,
+    options
+  }
+
+  const totalSteps = () => 3 + state.questionQueue.length
+
+  const stepIndex = () => {
+    switch (state.currentStep) {
+      case 'categories':
+        return 1
+      case 'question':
+        return 2 + state.currentQuestionIndex
+      case 'results':
+        return state.questionQueue.length + 2
+      case 'actions':
+        return state.questionQueue.length + 3
+      default:
+        return 1
+    }
+  }
+
+  const updateProgress = () => {
+    const total = Math.max(totalSteps(), 4)
+    const current = Math.min(stepIndex(), total)
+    const percent = Math.max(8, Math.round((current / total) * 100))
+    if (progressBar) progressBar.style.width = `${percent}%`
+    if (progressLabel) progressLabel.textContent = `Étape ${current} sur ${total}`
+  }
+
+  const setStep = (name) => {
+    state.currentStep = name
+    stepSections.forEach(section => {
+      section.classList.toggle('active', section.dataset.step === name)
+    })
+    updateProgress()
+    if (name === 'categories') {
+      const first = categoriesContainer?.querySelector('button')
+      first?.focus()
+    } else if (name === 'question') {
+      questionOptions?.querySelector('.choice-btn.selected')?.focus()
+    } else if (name === 'results') {
+      root.querySelector('[data-action="to-cta"]').focus({ preventScroll: true })
+    }
+  }
+
+  const resetState = () => {
+    state.categories.clear()
+    state.questionQueue = []
+    state.answers = {}
+    state.scores = {}
+    state.answerScores = {}
+    state.currentQuestionIndex = 0
+    state.openedAt = null
+    state.questionStart = null
+    state.hasResults = false
+    categoriesContainer?.querySelectorAll('.category-option').forEach(btn => {
+      btn.classList.remove('active')
+      btn.setAttribute('aria-pressed', 'false')
+    })
+    startBtn.disabled = true
+    resultsContainer.innerHTML = ''
+    overallScore.textContent = ''
+    overallText.textContent = ''
+    totalSavingsEl.textContent = ''
+    totalTextEl.textContent = ''
+    ctaGrid.innerHTML = ''
+    questionTitle.textContent = ''
+    questionSubtitle.textContent = ''
+    questionOptions.innerHTML = ''
+    questionContext.textContent = ''
+    questionProgress.textContent = ''
+    setStep('categories')
+  }
+
+  const openModal = () => {
+    if (!backdrop) return
+    backdrop.hidden = false
+    backdrop.classList.add('open')
+    trapFocus(modal)
+    state.openedAt = Date.now()
+    pushEvent('insuranceWidget_open')
+    setTimeout(() => {
+      categoriesContainer?.querySelector('button')?.focus({ preventScroll: true })
+    }, 50)
+  }
+
+  const closeModal = (reason = 'close') => {
+    if (!backdrop || !backdrop.classList.contains('open')) return
+    releaseTrap(modal)
+    backdrop.classList.remove('open')
+    backdrop.hidden = true
+    if (!state.hasResults) {
+      pushEvent('insuranceWidget_abandon', { step_abandon: state.currentStep }, false)
+    }
+    resetState()
+    card?.focus({ preventScroll: true })
+  }
+
+  const buildQuestionQueue = () => {
+    state.questionQueue = []
+    state.categories.forEach(cat => {
+      const cfg = CATEGORY_CONFIG[cat]
+      cfg.questions.forEach(q => {
+        state.questionQueue.push({ category: cat, question: q })
+      })
+    })
+  }
+
+  const renderQuestion = () => {
+    const current = state.questionQueue[state.currentQuestionIndex]
+    if (!current) return
+    const { category, question } = current
+    const cfg = CATEGORY_CONFIG[category]
+    if (questionContext) questionContext.textContent = `${cfg.icon} ${cfg.label}`
+    if (questionTitle) questionTitle.textContent = question.title
+    if (questionSubtitle) {
+      questionSubtitle.textContent = question.subtitle || ''
+      questionSubtitle.style.display = question.subtitle ? 'block' : 'none'
+    }
+    if (questionProgress) {
+      const humanIndex = state.currentQuestionIndex + 1
+      questionProgress.textContent = `Question ${humanIndex} sur ${state.questionQueue.length}`
+    }
+    const prev = state.answers[category]?.[question.id]
+    questionOptions.innerHTML = question.options.map(opt => `
+      <button type="button" class="choice-btn${opt.value === prev ? ' selected' : ''}" data-value="${opt.value}" data-score="${opt.score}">
+        <strong>${opt.label}</strong>
+        <span>${opt.detail}</span>
+      </button>
+    `).join('')
+    Array.from(questionOptions.querySelectorAll('.choice-btn')).forEach(btn => {
+      btn.addEventListener('click', () => {
+        const value = btn.dataset.value
+        const score = Number(btn.dataset.score || 0)
+        state.answers[category] = { ...(state.answers[category] || {}), [question.id]: value }
+        const prevScores = state.answerScores[category] || {}
+        const prevScore = prevScores[question.id] || 0
+        state.answerScores[category] = { ...prevScores, [question.id]: score }
+        state.scores[category] = Math.max(0, (state.scores[category] || 0) - prevScore + score)
+        questionOptions.querySelectorAll('.choice-btn').forEach(b => b.classList.remove('selected'))
+        btn.classList.add('selected')
+        setTimeout(() => {
+          state.currentQuestionIndex += 1
+          if (state.currentQuestionIndex >= state.questionQueue.length) {
+            const duration = Math.max(1, Math.round((Date.now() - (state.questionStart || Date.now())) / 1000))
+            pushEvent('insuranceWidget_questionsCompleted', {
+              nombre_questions: state.questionQueue.length,
+              duree_completion: duration
+            })
+            showResults()
+          } else {
+            renderQuestion()
+          }
+        }, 180)
+      })
+    })
+    const selected = questionOptions.querySelector('.choice-btn.selected')
+    const fallback = questionOptions.querySelector('.choice-btn')
+    ;(selected || fallback)?.focus({ preventScroll: true })
+  }
+
+  const computeOverallScore = (items) => {
+    if (!items.length) return { score: 0, text: '' }
+    const total = items.reduce((sum, item) => sum + item.score, 0)
+    const avg = total / items.length
+    const rounded = Math.round(avg * 10) / 10
+    let text = 'Plus le score est élevé, plus vos contrats sont sous contrôle.'
+    if (rounded <= 3) text = 'Alerte : vos contrats nécessitent une action immédiate pour stopper l\'hémorragie.'
+    else if (rounded <= 6) text = 'Encore un petit effort pour sécuriser vos économies potentielles.'
+    else if (rounded >= 8) text = 'Excellent réflexe ! Continuez à vérifier vos assurances régulièrement.'
+    return { score: rounded, text }
+  }
+
+  const buildCtaCards = (items) => {
+    ctaGrid.innerHTML = items.map(item => `
+      <div class="cta-card" data-category="${item.key}">
+        <div class="cta-text">
+          <h5>${item.icon} ${item.label}</h5>
+          <p>${item.ctaMessage}</p>
+        </div>
+        <button type="button" class="primary-btn" data-cta="${item.key}">${item.ctaLabel}</button>
+      </div>
+    `).join('')
+    Array.from(ctaGrid.querySelectorAll('[data-cta]')).forEach(btn => {
+      btn.addEventListener('click', () => {
+        const key = btn.dataset.cta
+        const cfg = CATEGORY_CONFIG[key]
+        const result = items.find(i => i.key === key)
+        pushEvent('insuranceWidget_CTA_click', {
+          assurance_type: key,
+          potentiel_economie: cfg.savings,
+          score_vigilance: result?.score || 0
+        }, false)
+        if (cfg.ctaUrl) {
+          window.open(cfg.ctaUrl, '_blank', 'noopener')
+        }
+        closeModal('cta')
+      })
+    })
+  }
+
+  const showResults = async () => {
+    state.hasResults = true
+    const results = state.categories.size ? Array.from(state.categories).map(key => {
+      const cfg = CATEGORY_CONFIG[key]
+      const evalResult = cfg.evaluate(state.answers[key] || {})
+      const rawScore = state.scores[key] || 0
+      const max = MAX_SCORES[key] || 1
+      const normalized = Math.max(0, Math.min(10, Math.round((rawScore / max) * 10)))
+      return {
+        key,
+        label: cfg.label,
+        icon: cfg.icon,
+        tone: evalResult.tone,
+        headline: evalResult.headline,
+        message: evalResult.message,
+        source: cfg.source,
+        score: normalized,
+        savings: cfg.savings,
+        ctaLabel: cfg.ctaLabel,
+        ctaMessage: `Débloquez jusqu'à ${cfg.savings}${key === 'sante' ? ' CHF' : ' €'} d'économies potentielles`,
+        answers: state.answers[key] || {}
+      }
+    }) : []
+
+    resultsContainer.innerHTML = results.map(item => `
+      <article class="diagnosis-card" data-tone="${item.tone}">
+        <div class="diagnosis-icon">${item.icon}</div>
+        <div>
+          <h4>${item.headline}</h4>
+          <p>${item.message}</p>
+          <p class="source">${item.source}</p>
+        </div>
+        <div class="score-pill">Score ${item.score}/10</div>
+      </article>
+    `).join('')
+
+    const overall = computeOverallScore(results)
+    overallScore.textContent = `Score de vigilance assurance : ${overall.score}/10`
+    overallText.textContent = overall.text
+
+    const totalSavings = results.reduce((sum, item) => sum + item.savings, 0)
+    totalSavingsEl.textContent = `Potentiel d'économies estimé : jusqu'à ${totalSavings} € / CHF`
+    totalTextEl.textContent = `Additionnez auto, habitation et santé et vous atteignez facilement 1 000 € d'économies annuelles.`
+
+    buildCtaCards(results)
+
+    const payload = {
+      assurances_selectionnees: Array.from(state.categories),
+      reponses: state.answers,
+      score_vigilance: overall.score,
+      estimation_economies_totales: totalSavings,
+      source: options.source || 'widgetPageAccueil',
+      timestamp: new Date().toISOString()
+    }
+
+    pushEvent('insuranceWidget_resultsShown', {
+      potentiel_economie: totalSavings,
+      score_vigilance: overall.score
+    })
+
+    submitCheckup(options, payload).then(ok => {
+      pushEvent('insuranceWidget_dataSent', { status: ok ? 'success' : 'error' }, false)
+    }).catch(() => {
+      pushEvent('insuranceWidget_dataSent', { status: 'error' }, false)
+    })
+
+    setStep('results')
+  }
+
+  // Listeners
+  card?.addEventListener('click', () => openModal())
+  card?.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault()
+      openModal()
+    }
+  })
+
+  categoriesContainer?.addEventListener('click', (event) => {
+    const btn = event.target.closest('.category-option')
+    if (!btn) return
+    const key = btn.dataset.category
+    if (!CATEGORY_CONFIG[key]) return
+    if (state.categories.has(key)) {
+      state.categories.delete(key)
+      btn.classList.remove('active')
+      btn.setAttribute('aria-pressed', 'false')
+    } else {
+      state.categories.add(key)
+      btn.classList.add('active')
+      btn.setAttribute('aria-pressed', 'true')
+    }
+    startBtn.disabled = state.categories.size === 0
+  })
+
+  startBtn?.addEventListener('click', () => {
+    if (!state.categories.size) return
+    buildQuestionQueue()
+    state.currentQuestionIndex = 0
+    state.questionStart = Date.now()
+    pushEvent('insuranceWidget_selectCategories', {
+      categories: Array.from(state.categories),
+      nombre_categories: state.categories.size
+    })
+    setStep('question')
+    renderQuestion()
+  })
+
+  backBtn?.addEventListener('click', () => {
+    if (state.currentStep === 'question') {
+      if (state.currentQuestionIndex === 0) {
+        setStep('categories')
       } else {
-        if (digits[di] !== undefined) res += ch
+        state.currentQuestionIndex = Math.max(0, state.currentQuestionIndex - 1)
+        renderQuestion()
       }
-    }
-    ph.value = res
-    ph.placeholder = mask
-  }
-  if (ph && phPref) {
-    ph.addEventListener('input', maskPhone)
-    phPref.addEventListener('change', () => { ph.value = ''; maskPhone() })
-    maskPhone()
-  }
-
-  // Botones
-
-  const nextBtn = state.$in(root, '.btn.p[data-act="next"]')
-  if (nextBtn) nextBtn.addEventListener('click', () => nextFromStep1(root, options))
-  const compBtn = state.$in(root, '.btn.p[data-act="compute"]')
-  if (compBtn) compBtn.addEventListener('click', () => compute(root, options))
-
-  let from2026 = false
-
-  const toggle2026Block = () => {
-    const blk = state.$in(root, '#info2026')
-    const market = state.$in(root, '#s4 > .wrap.rc')
-    const msg = state.$in(root, '#s4 > .market-msg')
-    const title = state.$in(root, '#s4-msg')
-    if (blk) blk.style.display = from2026 ? 'block' : 'none'
-    if (market) market.style.display = from2026 ? 'none' : 'block'
-    if (msg) msg.style.display = from2026 ? 'none' : 'block'
-    if (title) title.textContent = from2026
-      ? 'Soyez parmi les premiers à recevoir les primes 2026 ! 🎁'
-      : 'Vos offres détaillées sont prêtes ! Débloquez-les immédiatement 🎁'
-  }
-
-  // Navegación (retours y demás)
-  state.$inAll(root, '.btn[data-go]')?.forEach(btn => {
-    const to = btn.getAttribute('data-go')
-    if (to) btn.addEventListener('click', () => {
-      state.toastClear(root)
-      if (to === '4') {
-        from2026 = btn.hasAttribute('data-from2026')
-        pushEvent('form_step4')
-      }
-      dom.showStep(root, Number(to))
-      if (to === '4') toggle2026Block()
-    })
-  })
-
-  toggle2026Block()
-
-  // CTA final
-  const finalBtn = state.$in(root, '.btn.p[data-act="lead"]')
-  if (finalBtn) finalBtn.addEventListener('click', (e) => lead(root, e, options))
-
-  // Fallback global handlers for legacy integrations
-  Object.assign(window, {
-    N: () => nextFromStep1(root, options),
-    C: () => compute(root, options),
-    S: (to) => {
-      state.toastClear(root)
-      const stepMap = { '2': 'form_step2', '3': 'form_step3', '4': 'form_step4' }
-      const evt = stepMap[to]
-      if (evt) pushEvent(evt)
-      dom.showStep(root, Number(to))
+    } else if (state.currentStep === 'results') {
+      state.currentQuestionIndex = Math.max(0, state.questionQueue.length - 1)
+      setStep('question')
+      renderQuestion()
     }
   })
-}
 
-async function nextFromStep1(root, opts) {
-  const N = +(state.$in(root, '#n')?.value || 0)
-  const A = +(state.$in(root, '#a')?.value || 0)
-  if (!N || !A) { state.toast(root, 'Complétez NPA et Âge.', true); return }
-  if (N < 1000 || N > 9999) { state.toast(root, 'NPA invalide (1000–9999).', true); return }
-  if (A < 18 || A > 99) { state.toast(root, 'Âge invalide (18–99).', true); return }
+  toCtaBtn?.addEventListener('click', () => {
+    setStep('actions')
+  })
 
-  state.toast(root, 'OK')
-  pushEvent('form_step2')
-  try {
-    const meta = await dom.withLoader(root, () => getPrimesMeta(opts, { npa:N, age:A }))
-    const P = meta?.params || {}
-    state.setX(P)
-    const l = P.npa_localite || ''
-    const y = P.year_resolved || (P.year === 'latest' ? 'dernière année disponible' : P.year) || ''
-    const rawC = P.canton_phrase_fr || ''
-    const c = rawC
-      ? rawC.toLowerCase().includes('canton')
-        ? rawC
-        : (/^(?:de|du|des|d['’])/i.test(rawC) ? `canton ${rawC}` : `canton de ${rawC}`)
-      : ''
-    const npa = P.npa || N
-    if (l) dom.ctxSet(root, `Calcul pour <strong>${l}</strong>${c?` <strong>${c}</strong>`:''} (${npa}) – année des primes <strong>${y}</strong>.`)
-  } catch {}
-  dom.showStep(root, 2)
-}
-
-async function compute(root, opts) {
-  const n = state.$in(root, '#n')?.value
-  const a = state.$in(root, '#a')?.value
-  const f = state.$in(root, '#f')?.value
-  const x = state.$in(root, '#x')?.value
-
-  if (!n || !a) { state.toast(root, 'Complétez NPA et Âge.', true); return }
-
-  pushEvent('form_step3')
-  let d
-  try {
-    d = await dom.withLoader(root, () => getPrimes(opts, { npa:n, age:a, franchise:f, accident:x }))
-  } catch (e) {
-    console.error('RA > primes fetch error', e)
-    state.toast(root, 'Erreur lors du calcul des primes.', true)
-    return
-  }
-  const rows = d.rows || []
-  const P = d.params || {}
-  state.setX({ ...(state.X||{}), params:P, rows })
-
-  const y = P.year_resolved || (P.year==='latest' ? 'dernière année disponible' : P.year)
-  const l = P.npa_localite || 'votre localité'
-  const rawC = P.canton_phrase_fr || ''
-  const c = rawC
-    ? rawC.toLowerCase().includes('canton')
-      ? rawC
-      : (/^(?:de|du|des|d['’])/i.test(rawC) ? `canton ${rawC}` : `canton de ${rawC}`)
-    : ''
-  const npa = P.npa || n
-  dom.ctxSet(root, `Calcul pour <strong>${l}</strong>${c?` <strong>${c}</strong>`:''} (${npa}) – année des primes <strong>${y}</strong>.`)
-
-  const head = `<div class="sum">Voici <strong>quelques</strong> résultats des primes <strong>${y}</strong> pour une personne de <strong>${a}</strong> ans résidant à <strong>${l}</strong>${c?` <strong>${c}</strong>`:''}, pour une franchise de <strong>CHF ${f}</strong>.</div>`
-  const body = rows.slice(0,5).map((i,k)=>{
-    const p = +i.prime
-    const net = p - 5.15
-    const isFirst = k === 0
-    const isSecond = k === 1
-    const insurer = isFirst
-      ? '<span class="obf">Assureur masqué</span>'
-      : isSecond
-        ? `<span class="obf">${i.insurer}</span>`
-        : i.insurer
-    const netCell = isFirst
-      ? `<strong><span class="obf">${net.toFixed(2)}</span></strong>`
-      : `<strong>${net.toFixed(2)}</strong>`
-    const grossCell = isFirst
-      ? `<span class="obf">${p.toFixed(2)}</span>`
-      : p.toFixed(2)
-    return `<tr${isFirst?' class="first"':''}><td>${insurer}${isFirst?'<br/><span class="badgi">Meilleur prix</span>':''}</td><td>${netCell}</td><td>${grossCell}</td><td>${i.franchise}</td><td>${i.accident?'Oui':'Non'}</td></tr>`
-  }).join('')
-  const ghost = '<tr class="ghost"><td colspan="5">Plus de résultats disponibles...</td></tr>'
-  const table = rows.length
-    ? `<div class="wrap">
-         ${head}
-         <div class="hscroll">
-           <table aria-label="Résultats des primes" style="text-align:center">
-             <thead><tr><th>Assureur</th><th>Prime nette (CHF) <span class="ibtn" tabindex="0">i<div class="ibubble">Du prix de la prime, CHF <strong>5.15</strong> de taxe<br/>environnementale sont déduits. <a href="https://www.parlament.ch/fr/ratsbetrieb/suche-curia-vista/geschaeft?AffairId=20223239" target="_blank" rel="noopener noreferrer">Voir plus</a></div></span></th><th>Prime brutte (CHF)</th><th>Franchise</th><th>Accident</th></tr></thead>
-             <tbody>${body}${ghost}</tbody>
-           </table>
-         </div>
-       </div>`
-    : `<div class="wrap">${head}<div style="padding:12px 14px;color:#991b1b">Aucun résultat trouvé. Vérifiez le code postal.</div></div>`
-
-  state.$in(root, '#r').innerHTML = table
-  state.toast(root, 'Résultats chargés.')
-  dom.showStep(root, 3)
-
-  // Prepara pantalla 4 (stats)
-  await buildMarket(root, opts, { npa:n, age:a, franchise:f, accident:x })
-}
-
-  async function buildMarket(root, opts, p) {
-    const s4 = state.$in(root, '#s4')
-    s4?.querySelectorAll('.wrap.rc, #info2026, .market-msg').forEach(el => el.remove())
-    try {
-      const { offers:of=[], stats:st={} } = await dom.withLoader(root, () => getCompare(opts, p))
-      const listItems = (of || []).slice(0,3)
-        .map((o,i)=>{
-          const net = (+o.prime - 5.15)
-          const insurer = i ? o.insurer : '<span class="obf">Nom masqué</span>'
-          return `<li><strong>Top offre ${i+1}:</strong> ${insurer} – <strong>${net.toFixed(2)} CHF</strong></li>`
-        }).join('')
-      const list = listItems
-        ? `<ul style="margin:0;padding-left:16px;font-size:14px;color:#374151">${listItems}</ul>`
-        : '<div style="padding:0 0 6px 16px;color:#991b1b">Aucune offre à afficher</div>'
-      const minNet = st.min_prime ? st.min_prime - 5.15 : 0
-      const avgNet = st.avg_prime ? st.avg_prime - 5.15 : 0
-      const p50Net = st.p50 ? st.p50 - 5.15 : 0
-      const max = Math.max(minNet, avgNet, p50Net)
-      const bar = (label,v)=>{
-        if(!v) return ''
-        const w = max ? (v/max*100) : 0
-        return `<div style="display:flex;align-items:center;font-size:12px;margin-top:4px">
-          <div style="width:70px;color:#374151">${label}</div>
-          <div class="market-bar"><div class="bar" style="width:${w}%"></div></div>
-          <div style="width:60px;text-align:right;color:#111827">${v.toFixed(2)} CHF</div>
-        </div>`
-      }
-      const stats = (st && max)
-        ? `<div style="margin-top:10px">${[
-            bar('Min', minNet),
-            bar('Moyenne', avgNet),
-            bar('P50', p50Net)
-          ].join('')}</div>`
-        : ''
-      const html = `
-        <div class="wrap rc" style="margin:8px 8px 0 8px;padding:12px">
-          <div style="font-weight:700;color:#111827;margin-bottom:8px">Aperçu du marché</div>
-          ${list}
-          ${stats}
-        </div>
-        <div id="info2026" style="display:none;margin:12px 8px 16px 8px;padding:12px 16px;background:#F9F9F9;border-left:3px solid #FF6B00;color:#333;font-size:14px">
-          🔔 Soyez le premier à recevoir les primes 2026<br>👉 Entrez vos coordonnées maintenant pour être averti dès leur publication.
-        </div>
-        <div class="market-msg" style="margin:0 8px;padding:10px;border:1px dashed #6ee7b7;border-radius:10px;background:#ecfdf5;color:#065f46;font-size:13px">
-          <strong>Une fois le formulaire complété</strong>, visualisez gratuitement <strong>ici</strong> toutes vos offres détaillées <strong>par la suite</strong>. 👇
-        </div>`
-      state.$in(root, '#s4')?.insertAdjacentHTML('afterbegin', html)
-      state.setX({ ...(state.X||{}), compare:{ offers:of, stats:st } })
-    } catch {}
-  }
-
-async function lead(root, e, opts) {
-  const fn = state.$in(root, '#fn')?.value?.trim()
-  const ph = state.$in(root, '#ph')?.value?.trim()
-  const pref = state.$in(root, '#ph_prefix')?.value || ''
-  const mask = state.$in(root, '#ph_prefix')?.selectedOptions?.[0]?.dataset?.mask || ''
-  const cons = state.$in(root, '#c')?.checked
-  const wa = state.$in(root, '#wa')?.checked
-  if (!fn) { state.toast(root, 'Indiquez votre prénom.', true); return }
-  if (!ph) { state.toast(root, 'Indiquez un numéro de téléphone.', true); return }
-  const { ok:phOk, mob } = state.phoneValidate(pref, ph, mask)
-  if (!phOk) { state.toast(root, 'Numéro invalide.', true); return }
-  if (wa && !mob) { state.toast(root, 'Pour WhatsApp, utilisez un mobile (07X ou +417X).', true); return }
-  if (!cons) { state.toast(root, 'Vous devez accepter la politique de confidentialité.', true); return }
-  if (e && e.target) e.target.disabled = true
-  const n = state.$in(root, '#n')?.value
-  const a = state.$in(root, '#a')?.value
-  const f = state.$in(root, '#f')?.value
-  const x = state.$in(root, '#x')?.value
-  const payload = {
-    npa:n, age:a, franchise:f, accident:x,
-    nom:fn, prenom:fn, telephone:`${pref} ${ph}`.trim(),
-    whatsapp:wa, consentement:cons,
-    data:{
-      npa_localite: state.X?.params?.npa_localite,
-      npa_canton: state.X?.params?.npa_canton,
-      canton_name_fr: state.X?.params?.canton_name_fr,
-      params:{ npa:+n, age:+a, franchise:+f, accident:+x }
+  backdrop?.addEventListener('click', (event) => {
+    if (event.target === backdrop) {
+      closeModal('overlay')
     }
-  }
-  pushEvent('form_lead', {}, false)
-  const ok = await dom.withLoader(root, () => registerLead(opts||{}, payload))
-  if(!ok){ state.toast(root, "Erreur lors de l'enregistrement.", true); if(e && e.target) e.target.disabled=false; return }
-  // --- CONVERSIÓN ---
-  pushEvent('form_conversion', { value: 0.0, currency: 'CHF' })
-  dom.showStep(root, 5)
-  const rows = state.X?.rows || []
-  const P = state.X?.params || {}
-  const r5 = state.$in(root, '#r5')
-  if (r5 && rows.length) {
-    const y = P.year_resolved || (P.year === 'latest' ? 'dernière année disponible' : P.year)
-    const l = P.npa_localite || 'votre localité'
-    const rawC = P.canton_phrase_fr || ''
-    const c = rawC
-      ? rawC.toLowerCase().includes('canton')
-        ? rawC
-        : (/^(?:de|du|des|d['’])/i.test(rawC) ? `canton ${rawC}` : `canton de ${rawC}`)
-      : ''
-    const head = `<div class="sum">Voici <strong>toutes</strong> les primes <strong>${y}</strong> pour une personne de <strong>${a}</strong> ans résidant à <strong>${l}</strong>${c?` <strong>${c}</strong>`:''}, pour une franchise de <strong>CHF ${f}</strong>.</div>`
-    const body = rows.map(i => {
-      const p = +i.prime
-      const net = p - 5.15
-      return `<tr><td>${i.insurer}</td><td><strong>${net.toFixed(2)}</strong></td><td>${p.toFixed(2)}</td><td>${i.franchise}</td><td>${i.accident?'Oui':'Non'}</td></tr>`
-    }).join('')
-    const table = `<div class="wrap"><div class="hscroll"><table aria-label="Résultats des primes" style="text-align:center"><thead><tr><th>Assureur</th><th>Prime nette (CHF) <span class="ibtn" tabindex="0">i<div class="ibubble">Du prix de la prime, CHF <strong>5.15</strong> de taxe<br/>environnementale sont déduits. <a href="https://www.parlament.ch/fr/ratsbetrieb/suche-curia-vista/geschaeft?AffairId=20223239" target="_blank" rel="noopener noreferrer">Voir plus</a></div></span></th><th>Prime brutte (CHF)</th><th>Franchise</th><th>Accident</th></tr></thead><tbody>${body}</tbody></table></div></div>`
-    r5.innerHTML = table
-  }
-  const box = state.$in(root, '.box')
-  if (box) box.classList.add('wide')
-  setTimeout(async () => {
-    state.toastClear(root)
-    root.querySelectorAll('input').forEach(i => {
-      if (i.type === 'checkbox') i.checked = false
-      else i.value = ''
-    })
-    const fEl = state.$in(root, '#f')
-    if (fEl) fEl.value = '2500'
-    const xEl = state.$in(root, '#x')
-    if (xEl) xEl.value = '0'
-    const ctxEl = state.$in(root, '#ctx')
-    if (ctxEl) ctxEl.innerHTML = ''
-    const rEl = state.$in(root, '#r')
-    if (rEl) rEl.innerHTML = ''
-    const r5El = state.$in(root, '#r5')
-    if (r5El) r5El.innerHTML = ''
-    state.setX(null)
-    if (e && e.target) e.target.disabled = false
-    await dom.withLoader(root, () => new Promise(r => setTimeout(r, 1000)))
-    if (box) box.classList.remove('wide')
-    dom.showStep(root, 1)
-  }, 120000)
-}
+  })
 
+  closeButtons.forEach(btn => btn.addEventListener('click', () => closeModal('button')))
+
+  root.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      closeModal('escape')
+    }
+  })
+
+  resetState()
+}
