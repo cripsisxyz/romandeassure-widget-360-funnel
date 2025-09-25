@@ -9,7 +9,7 @@ Incluya el archivo compilado en su página y luego inicialice el widget:
 <div id="ra"></div>
 <script src="widget.js"></script>
 <script>
-  RAWidget.init('#ra', { apiBase: 'https://romandeassure.ch/api' })
+  RA360Widget.init('#ra', { apiBase: 'https://romandeassure.ch/api' })
 </script>
 ```
 

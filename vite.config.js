@@ -6,7 +6,7 @@ export default defineConfig({
   build: {
     lib: {
       entry: 'src/index.js',
-      name: 'RAWidget',           // window.RAWidget
+      name: 'RA360Widget',        // window.RA360Widget
       formats: ['iife'],
       fileName: () => 'widget.js' // salida: dist/widget.js
     },
