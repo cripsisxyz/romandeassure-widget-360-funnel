@@ -175,7 +175,6 @@ const WIDGET_HTML = `
 <div class="ra360">
   <div class="modal-backdrop" data-modal hidden>
     <div class="modal" id="ra-modal" role="dialog" aria-modal="true" aria-labelledby="ra-modal-title">
-      <button class="modal-close" data-close aria-label="Fermer le diagnostic">×</button>
       <header>
         <h2 id="ra-modal-title">Bilan express de vos assurances 📊</h2>
         <p>Répondez à quelques questions pour découvrir où vous pourriez économiser jusqu\'à 1 000 € par an.</p>
@@ -302,7 +301,6 @@ export function initApp(root, options = {}) {
 
   const backdrop = root.querySelector('[data-modal]')
   const modal = root.querySelector('.modal')
-  const closeButtons = root.querySelectorAll('[data-close]')
   const progressBar = root.querySelector('[data-progress-bar]')
   const progressLabel = root.querySelector('[data-progress-label]')
   const stepSections = Array.from(root.querySelectorAll('.step'))
@@ -838,8 +836,6 @@ export function initApp(root, options = {}) {
       closeModal('overlay')
     }
   })
-
-  closeButtons.forEach(btn => btn.addEventListener('click', () => closeModal('button')))
 
   root.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
