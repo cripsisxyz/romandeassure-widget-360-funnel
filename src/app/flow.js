@@ -173,16 +173,6 @@ const EVENT_DIMENSIONS = { ui_style: 'soft-card', aura: 'blue', variant: 'captur
 
 const WIDGET_HTML = `
 <div class="ra360">
-  <article class="widget-card" data-role="card" tabindex="0" aria-haspopup="dialog" aria-controls="ra-modal">
-    <div class="card-icon-trio" aria-hidden="true">
-      <span class="icon-pill"><span>🚗</span></span>
-      <span class="icon-pill"><span>🏡</span></span>
-      <span class="icon-pill"><span>🩺</span></span>
-    </div>
-    <h3>Bilan sérénité de vos assurances</h3>
-    <p class="card-subtitle">Identifiez en douceur vos marges d'économies sur l'auto, l'habitation et LAMal.</p>
-    <div class="cta-inline">Commencer le bilan maintenant <span aria-hidden="true">→</span></div>
-  </article>
   <div class="modal-backdrop" data-modal hidden>
     <div class="modal" id="ra-modal" role="dialog" aria-modal="true" aria-labelledby="ra-modal-title">
       <button class="modal-close" data-close aria-label="Fermer le diagnostic">×</button>
@@ -310,7 +300,6 @@ const MAX_SCORES = computeMaxScores()
 export function initApp(root, options = {}) {
   root.innerHTML = WIDGET_HTML
 
-  const card = root.querySelector('[data-role="card"]')
   const backdrop = root.querySelector('[data-modal]')
   const modal = root.querySelector('.modal')
   const closeButtons = root.querySelectorAll('[data-close]')
@@ -332,6 +321,10 @@ export function initApp(root, options = {}) {
   const totalSavingsEl = root.querySelector('[data-total-savings]')
   const totalTextEl = root.querySelector('[data-total-text]')
   const ctaGrid = root.querySelector('[data-cta-grid]')
+
+  const triggerSelector = options.trigger || '#diag360'
+  const externalTrigger = triggerSelector ? document.querySelector(triggerSelector) : null
+  let lastFocusedBeforeOpen = null
 
   buildCategoryButtons(categoriesContainer)
 
@@ -450,6 +443,7 @@ export function initApp(root, options = {}) {
 
   const openModal = () => {
     if (!backdrop) return
+    lastFocusedBeforeOpen = document.activeElement
     backdrop.hidden = false
     backdrop.classList.add('open')
     trapFocus(modal)
@@ -471,7 +465,10 @@ export function initApp(root, options = {}) {
       pushEvent('ra360_abandon', { step_abandon: state.currentStep }, false)
     }
     resetState()
-    card?.focus({ preventScroll: true })
+    const focusTarget = lastFocusedBeforeOpen && document.contains(lastFocusedBeforeOpen)
+      ? lastFocusedBeforeOpen
+      : externalTrigger
+    focusTarget?.focus({ preventScroll: true })
   }
 
   const buildQuestionQueue = () => {
@@ -770,13 +767,21 @@ export function initApp(root, options = {}) {
   }
 
   // Listeners
-  card?.addEventListener('click', () => openModal())
-  card?.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault()
-      openModal()
-    }
-  })
+  if (externalTrigger) {
+    if (externalTrigger.tabIndex < 0) externalTrigger.tabIndex = 0
+    if (!externalTrigger.getAttribute('role')) externalTrigger.setAttribute('role', 'button')
+    externalTrigger.setAttribute('aria-haspopup', 'dialog')
+    externalTrigger.setAttribute('aria-controls', 'ra-modal')
+    externalTrigger.addEventListener('click', () => openModal())
+    externalTrigger.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault()
+        openModal()
+      }
+    })
+  } else if (triggerSelector) {
+    console.warn(`RA widget – trigger selector not found: ${triggerSelector}`)
+  }
 
   categoriesContainer?.addEventListener('click', (event) => {
     const btn = event.target.closest('.category-option')
