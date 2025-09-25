@@ -1,0 +1,65 @@
+name: Build & Release on Push
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write  # crear/actualizar releases
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      # Artefacto del job (útil para descargar desde la UI de Actions)
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
+
+      # (Opcional) checksum
+      - name: Checksums
+        run: |
+          cd dist
+          sha256sum widget.js > widget.js.sha256 || true
+
+      # Crea/actualiza Release "latest" apuntando al commit del push
+      - name: Create/Update GitHub Release (latest)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          target_commitish: ${{ github.sha }}
+          name: Nightly build (${% raw %}{{ github.sha }}{% endraw %})
+          draft: false
+          prerelease: true
+          make_latest: true
+          # sobrescribe ficheros del release en cada push
+          fail_on_unmatched_files: false
+          files: |
+            dist/widget.js
+            dist/widget.js.map
+            dist/widget.*.js
+            dist/widget.js.sha256
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
