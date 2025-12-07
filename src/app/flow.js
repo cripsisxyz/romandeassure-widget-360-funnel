@@ -1,9 +1,35 @@
 import { submitCheckup, submitLead } from './api.js'
 
+const ARTICLE_ICONS = {
+  auto: '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 13.5h15l-.9-3.6a2 2 0 0 0-1.9-1.5H7.3a2 2 0 0 0-1.9 1.5z"></path><path d="M6 17.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm12 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3ZM5.5 13.5l-.8-2.8M18.5 13.5l.8-2.8M9 9.5l.6-2.2"></path></svg>',
+  habitation: '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m4 11 8-6 8 6"></path><path d="M6.5 10.5V18a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1v-7.5"></path><path d="M10 17v-3.5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1V17"></path></svg>',
+  sante: '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4.5 7v5.5c0 4.2 3.1 8 7.5 8s7.5-3.8 7.5-8.1V7z"></path><path d="M9.5 12h5m-2.5-2.5V14"></path></svg>'
+}
+
+const MODE_COPY = {
+  home: {
+    title: 'Bilan express de vos assurances 📊',
+    subtitle: 'Répondez à quelques questions pour découvrir où vous pourriez économiser jusqu\'à 1 000 € par an.',
+    startCta: 'Commencer le diagnostic',
+    actionsCta: 'Voir mes actions concrètes'
+  },
+  article: {
+    title: 'Analyse rapide de vos assurances',
+    subtitle: 'Une mini vérification en 2 minutes pour confirmer que vous ne surpayez pas vos contrats.',
+    startCta: 'Commencer mon check-up',
+    actionsCta: 'Mes pistes d\'optimisation',
+    bridge: 'Si vous voulez savoir si vous payez trop vos primes, voici un outil discret pour vérifier en quelques clics.',
+    previewLead: 'Vérifiez en douceur si vos assurances sont toujours au bon prix.',
+    previewCta: 'Lancer mon analyse',
+    microBenefits: ['Conseil local et neutre', 'Moins de 2 minutes', 'Aucune démarche engagée']
+  }
+}
+
 const CATEGORY_CONFIG = {
   auto: {
     label: 'Assurance Auto',
     icon: '🚗',
+    articleIcon: ARTICLE_ICONS.auto,
     savings: 400,
     ctaLabel: 'Planifier un rappel auto',
     ctaUrl: 'https://romandeassure.ch/fr/assurance-auto',
@@ -59,6 +85,7 @@ const CATEGORY_CONFIG = {
   habitation: {
     label: 'Assurance Habitation',
     icon: '🏡',
+    articleIcon: ARTICLE_ICONS.habitation,
     savings: 450,
     ctaLabel: 'Planifier un rappel habitation',
     ctaUrl: 'https://romandeassure.ch/fr/assurance-habitation',
@@ -114,6 +141,7 @@ const CATEGORY_CONFIG = {
   sante: {
     label: 'Assurance Santé (LAMal)',
     icon: '🩺',
+    articleIcon: ARTICLE_ICONS.sante,
     savings: 416,
     ctaLabel: 'Accéder au comparateur LAMal',
     ctaUrl: 'https://romandeassure.ch/fr/comparateur-lamal',
@@ -171,13 +199,18 @@ const LAMAL_KEY = 'sante'
 const LAMAL_DESTINATION = '/fr/comparateur-lamal'
 const EVENT_DIMENSIONS = { ui_style: 'soft-card', aura: 'blue', variant: 'capture-like' }
 
-const WIDGET_HTML = `
-<div class="ra360">
-  <div class="modal-backdrop" data-modal hidden>
+
+const renderMicroBenefits = (items = []) => items.map(text => `<li>${text}</li>`).join('')
+
+const buildWidgetHTML = (mode) => {
+  const copy = MODE_COPY[mode] || MODE_COPY.home
+  const microBenefits = renderMicroBenefits(copy.microBenefits)
+
+  const modal = `
     <div class="modal" id="ra-modal" role="dialog" aria-modal="true" aria-labelledby="ra-modal-title">
       <header>
-        <h2 id="ra-modal-title">Bilan express de vos assurances 📊</h2>
-        <p>Répondez à quelques questions pour découvrir où vous pourriez économiser jusqu\'à 1 000 € par an.</p>
+        <h2 id="ra-modal-title">${copy.title}</h2>
+        <p>${copy.subtitle}</p>
         <div class="progress-bar"><span data-progress-bar></span></div>
         <div class="progress-label" data-progress-label>Étape 1 sur 4</div>
       </header>
@@ -186,7 +219,7 @@ const WIDGET_HTML = `
           <p>Sélectionnez les assurances que vous souhaitez analyser. Vous pouvez en choisir plusieurs.</p>
           <div class="categories-grid" data-categories></div>
           <div class="step-actions">
-            <button type="button" class="primary-btn" data-action="start" disabled>Commencer le diagnostic</button>
+            <button type="button" class="primary-btn" data-action="start" disabled>${copy.startCta}</button>
           </div>
         </section>
         <section class="step" data-step="question">
@@ -210,7 +243,7 @@ const WIDGET_HTML = `
           </div>
           <div class="results-summary" data-results></div>
           <div class="step-actions">
-            <button type="button" class="primary-btn" data-action="to-cta">Voir mes actions concrètes</button>
+            <button type="button" class="primary-btn" data-action="to-cta">${copy.actionsCta}</button>
           </div>
         </section>
         <section class="step" data-step="actions">
@@ -226,10 +259,42 @@ const WIDGET_HTML = `
         <div>Processus 100 % gratuit – aucune obligation</div>
       </footer>
     </div>
-  </div>
-</div>
-`
+  `
 
+  const modalBackdrop = `
+    <div class="modal-backdrop" data-modal hidden>
+      ${mode === 'article' && microBenefits ? `<div class="micro-benefits" aria-label="Avantages">${microBenefits}</div>` : ''}
+      ${modal}
+    </div>
+  `
+
+  if (mode === 'article') {
+    return `
+      <div class="ra360 mode-article">
+        <p class="article-bridge">${copy.bridge}</p>
+        <button type="button" class="article-preview" data-article-preview>
+          <span class="outline-icon" aria-hidden="true">${ARTICLE_ICONS.sante}</span>
+          <span class="preview-text">${copy.previewLead}</span>
+          <span class="preview-cta">${copy.previewCta}</span>
+        </button>
+        <div class="article-panel" data-article-panel hidden>
+          <div class="article-panel-head">
+            <div class="panel-kicker">Analyse personnelle</div>
+            <div class="panel-title">Répondez à 4 étapes pour obtenir votre synthèse.</div>
+            <button type="button" class="text-btn" data-article-close aria-label="Replier l'outil">Fermer</button>
+          </div>
+          ${modalBackdrop}
+        </div>
+      </div>
+    `
+  }
+
+  return `
+    <div class="ra360 mode-home">
+      ${modalBackdrop}
+    </div>
+  `
+}
 const sentEvents = window.__raSentEvents || new Set()
 window.__raSentEvents = sentEvents
 
@@ -273,14 +338,52 @@ function releaseTrap(container) {
   }
 }
 
-function buildCategoryButtons(container) {
-  container.innerHTML = CATEGORY_ENTRIES.map(([key, cfg]) => `
-    <button type="button" class="category-option" data-category="${key}" aria-pressed="false">
-      <div class="category-icon">${cfg.icon}</div>
-      <div>${cfg.label}</div>
-      <span>Jusqu'à ${cfg.savings} ${key === 'sante' ? 'CHF' : '€'} d'économies</span>
-    </button>
-  `).join('')
+function animateArticlePanel(panel, expand) {
+  if (!panel) return
+  const backdrop = panel.querySelector('[data-modal]')
+  const duration = 220
+  if (expand) {
+    if (backdrop) backdrop.hidden = false
+    panel.hidden = false
+    panel.style.maxHeight = '0px'
+    panel.style.opacity = '0'
+    requestAnimationFrame(() => {
+      panel.classList.add('open')
+      panel.style.maxHeight = `${panel.scrollHeight}px`
+      panel.style.opacity = '1'
+    })
+    setTimeout(() => {
+      panel.style.maxHeight = 'none'
+    }, duration)
+    return
+  }
+
+  panel.style.maxHeight = `${panel.scrollHeight}px`
+  panel.style.opacity = '1'
+  requestAnimationFrame(() => {
+    panel.classList.remove('open')
+    panel.style.maxHeight = '0px'
+    panel.style.opacity = '0'
+  })
+  setTimeout(() => {
+    panel.hidden = true
+    if (backdrop) backdrop.hidden = true
+    panel.style.maxHeight = ''
+  }, duration)
+}
+
+function buildCategoryButtons(container, mode = 'home') {
+  const useArticleIcons = mode === 'article'
+  container.innerHTML = CATEGORY_ENTRIES.map(([key, cfg]) => {
+    const icon = useArticleIcons && cfg.articleIcon ? cfg.articleIcon : cfg.icon
+    return `
+      <button type="button" class="category-option" data-category="${key}" aria-pressed="false">
+        <div class="category-icon">${icon}</div>
+        <div>${cfg.label}</div>
+        <span>Jusqu'à ${cfg.savings} ${key === 'sante' ? 'CHF' : '€'} d'économies</span>
+      </button>
+    `
+  }).join('')
 }
 
 function computeMaxScores() {
@@ -297,7 +400,9 @@ function computeMaxScores() {
 const MAX_SCORES = computeMaxScores()
 
 export function initApp(root, options = {}) {
-  root.innerHTML = WIDGET_HTML
+  const mode = options.mode === 'article' ? 'article' : 'home'
+  root.innerHTML = buildWidgetHTML(mode)
+  root.classList.add(`mode-${mode}`)
 
   const backdrop = root.querySelector('[data-modal]')
   const modal = root.querySelector('.modal')
@@ -319,12 +424,15 @@ export function initApp(root, options = {}) {
   const totalSavingsEl = root.querySelector('[data-total-savings]')
   const totalTextEl = root.querySelector('[data-total-text]')
   const ctaGrid = root.querySelector('[data-cta-grid]')
+  const articlePanel = root.querySelector('[data-article-panel]')
+  const articlePreview = root.querySelector('[data-article-preview]')
+  const articleClose = root.querySelector('[data-article-close]')
 
-  const triggerSelector = options.trigger || '#diag360'
+  const triggerSelector = mode === 'article' ? null : (options.trigger || '#diag360')
   const externalTrigger = triggerSelector ? document.querySelector(triggerSelector) : null
   let lastFocusedBeforeOpen = null
 
-  buildCategoryButtons(categoriesContainer)
+  buildCategoryButtons(categoriesContainer, mode)
 
   const state = {
     categories: new Set(),
@@ -339,7 +447,8 @@ export function initApp(root, options = {}) {
     hasResults: false,
     leadStatus: {},
     gtmSessionId: null,
-    options
+    options,
+    mode
   }
 
   const resolveGtmSessionId = () => {
@@ -437,14 +546,25 @@ export function initApp(root, options = {}) {
     questionContext.textContent = ''
     questionProgress.textContent = ''
     setStep('categories')
+    if (state.mode === 'article' && articlePanel) {
+      articlePanel.classList.remove('open')
+      const innerBackdrop = articlePanel.querySelector('[data-modal]')
+      if (innerBackdrop) innerBackdrop.hidden = true
+      articlePanel.hidden = true
+      articlePanel.style.maxHeight = ''
+      articlePanel.style.opacity = ''
+    }
   }
 
   const openModal = () => {
     if (!backdrop) return
+    if (state.mode === 'article') {
+      animateArticlePanel(articlePanel, true)
+    }
     lastFocusedBeforeOpen = document.activeElement
     backdrop.hidden = false
     backdrop.classList.add('open')
-    trapFocus(modal)
+    if (state.mode !== 'article') trapFocus(modal)
     state.openedAt = Date.now()
     pushEvent('ra360_open', {
       opened_at: new Date().toISOString()
@@ -455,17 +575,22 @@ export function initApp(root, options = {}) {
   }
 
   const closeModal = (reason = 'close') => {
-    if (!backdrop || !backdrop.classList.contains('open')) return
-    releaseTrap(modal)
-    backdrop.classList.remove('open')
-    backdrop.hidden = true
+    if (!backdrop || (!backdrop.classList.contains('open') && state.mode !== 'article')) return
+    if (state.mode !== 'article') {
+      releaseTrap(modal)
+      backdrop.classList.remove('open')
+      backdrop.hidden = true
+    } else {
+      animateArticlePanel(articlePanel, false)
+      backdrop.classList.remove('open')
+    }
     if (!state.hasResults) {
       pushEvent('ra360_abandon', { step_abandon: state.currentStep }, false)
     }
     resetState()
     const focusTarget = lastFocusedBeforeOpen && document.contains(lastFocusedBeforeOpen)
       ? lastFocusedBeforeOpen
-      : externalTrigger
+      : (externalTrigger || articlePreview)
     focusTarget?.focus({ preventScroll: true })
   }
 
@@ -484,7 +609,11 @@ export function initApp(root, options = {}) {
     if (!current) return
     const { category, question } = current
     const cfg = CATEGORY_CONFIG[category]
-    if (questionContext) questionContext.textContent = `${cfg.icon} ${cfg.label}`
+    const ctxIcon = state.mode === 'article' && cfg.articleIcon ? cfg.articleIcon : cfg.icon
+    if (questionContext) {
+      questionContext.innerHTML = `${ctxIcon} ${cfg.label}`
+      questionContext.classList.toggle('has-outline-icon', !!(state.mode === 'article' && cfg.articleIcon))
+    }
     if (questionTitle) questionTitle.textContent = question.title
     if (questionSubtitle) {
       questionSubtitle.textContent = question.subtitle || ''
@@ -692,6 +821,7 @@ export function initApp(root, options = {}) {
     state.hasResults = true
     const results = state.categories.size ? Array.from(state.categories).map(key => {
       const cfg = CATEGORY_CONFIG[key]
+      const icon = state.mode === 'article' && cfg.articleIcon ? cfg.articleIcon : cfg.icon
       const evalResult = cfg.evaluate(state.answers[key] || {})
       const rawScore = state.scores[key] || 0
       const max = MAX_SCORES[key] || 1
@@ -699,7 +829,7 @@ export function initApp(root, options = {}) {
       return {
         key,
         label: cfg.label,
-        icon: cfg.icon,
+        icon,
         tone: evalResult.tone,
         headline: evalResult.headline,
         message: evalResult.message,
@@ -765,6 +895,11 @@ export function initApp(root, options = {}) {
   }
 
   // Listeners
+  if (state.mode === 'article') {
+    articlePreview?.addEventListener('click', () => openModal())
+    articleClose?.addEventListener('click', () => closeModal('collapse'))
+  }
+
   if (externalTrigger) {
     if (externalTrigger.tabIndex < 0) externalTrigger.tabIndex = 0
     if (!externalTrigger.getAttribute('role')) externalTrigger.setAttribute('role', 'button')
@@ -832,7 +967,7 @@ export function initApp(root, options = {}) {
   })
 
   backdrop?.addEventListener('click', (event) => {
-    if (event.target === backdrop) {
+    if (state.mode !== 'article' && event.target === backdrop) {
       closeModal('overlay')
     }
   })
