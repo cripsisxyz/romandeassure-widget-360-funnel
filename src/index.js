@@ -112,6 +112,12 @@ function mountWidget(host) {
   shadow.innerHTML = TEMPLATE
 
   const root = shadow
+  const rootElement = root.getElementById('ra')
+  if (!rootElement) throw new Error('RA360Widget: root element not found')
+
+  if (typeof window !== 'undefined' && window.location.pathname.includes('/blog')) {
+    rootElement.classList.add('ra-article')
+  }
   const card = root.getElementById('accompagnement')
   const expander = root.getElementById('accompagnement-expander')
   const form = root.getElementById('accompagnement-form')
