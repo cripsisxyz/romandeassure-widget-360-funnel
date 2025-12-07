@@ -28,9 +28,9 @@ const TEMPLATE = `
             <span class="ra-chip">🔓&nbsp;Sans engagement</span>
             <span class="ra-chip">⚡&nbsp;Réponse rapide</span>
           </div>
-          <span class="ra-card__cta" role="link" aria-label="Je veux mon diagnostic gratuit">
+          <span class="ra-card__cta" role="link" aria-label="Recevoir mon diagnostic gratuit">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.11 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.86.33 1.7.62 2.5a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.58-1.19a2 2 0 0 1 2.11-.45c.8.29 1.64.5 2.5.62A2 2 0 0 1 22 16.92z"/></svg>
-            Je veux mon diagnostic gratuit →
+            <span class="ra-card__cta-label">Recevoir mon diagnostic gratuit →</span>
           </span>
         </div>
       </div>
@@ -115,7 +115,8 @@ function mountWidget(host) {
   const rootElement = root.getElementById('ra')
   if (!rootElement) throw new Error('RA360Widget: root element not found')
 
-  if (typeof window !== 'undefined' && window.location.pathname.includes('/blog')) {
+  const isArticle = typeof window !== 'undefined' && window.location.pathname.includes('/blog')
+  if (isArticle) {
     rootElement.classList.add('ra-article')
   }
   const card = root.getElementById('accompagnement')
@@ -126,17 +127,38 @@ function mountWidget(host) {
   const codeSelect = root.getElementById('acf-code')
   const phoneInput = root.getElementById('acf-phone')
   const successBox = root.getElementById('ra-success')
+  const reassure = root.querySelector('.ra-reassure')
+  const ctaLabel = root.querySelector('.ra-card__cta-label')
 
-  REASONS.forEach(reason => {
-    const badge = document.createElement('span')
-    badge.className = 'ra-badge'
-    badge.textContent = reason
-    badgesContainer.appendChild(badge)
-
+  const badgeLimit = isArticle ? 3 : REASONS.length
+  REASONS.forEach((reason, index) => {
     const option = document.createElement('option')
     option.value = reason
     datalist.appendChild(option)
+
+    if (index < badgeLimit) {
+      const badge = document.createElement('span')
+      badge.className = 'ra-badge'
+      badge.textContent = reason
+      badgesContainer.appendChild(badge)
+    }
   })
+
+  if (isArticle && REASONS.length > badgeLimit) {
+    const moreBadge = document.createElement('span')
+    moreBadge.className = 'ra-badge ra-badge--more'
+    moreBadge.textContent = `+${REASONS.length - badgeLimit} autres`
+    badgesContainer.appendChild(moreBadge)
+  }
+
+  if (isArticle) {
+    const chips = reassure?.querySelectorAll('.ra-chip') || []
+    chips[2]?.remove()
+
+    if (ctaLabel) {
+      ctaLabel.textContent = 'Recevoir mon diagnostic gratuit →'
+    }
+  }
 
   const enforceMask = () => {
     phoneInput.value = formatPhone(phoneInput.value)
