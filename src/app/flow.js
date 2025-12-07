@@ -400,7 +400,12 @@ function computeMaxScores() {
 const MAX_SCORES = computeMaxScores()
 
 export function initApp(root, options = {}) {
-  const mode = options.mode === 'article' ? 'article' : 'home'
+  const isBlogContext = (() => {
+    const href = window?.location?.href || ''
+    return href.toLowerCase().includes('/blog')
+  })()
+
+  const mode = isBlogContext || options.mode === 'article' ? 'article' : 'home'
   root.innerHTML = buildWidgetHTML(mode)
   root.classList.add(`mode-${mode}`)
 
